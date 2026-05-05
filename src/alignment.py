@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 import cv2
 import numpy as np
-
+from typing import Any
 
 DEFAULT_ORB_FEATURES = 1000
 LOWE_RATIO = 0.75
@@ -32,6 +32,10 @@ class AlignmentResult:
     num_good_matches: int
     num_inliers: int
     success: bool
+    kp_source: list[Any] | None = None
+    kp_target: list[Any] | None = None
+    matches: list[Any] | None = None
+    inlier_mask: np.ndarray | None = None
 
 
 def detect_and_describe(
@@ -133,6 +137,10 @@ def align(
         num_good_matches=len(good_matches),
         num_inliers=num_inliers,
         success=num_inliers >= MIN_INLIERS_FOR_VALID_ALIGNMENT,
+        kp_source=kp_s,
+        kp_target=kp_t,
+        matches=good_matches,
+        inlier_mask=inlier_mask
     )
 
 
