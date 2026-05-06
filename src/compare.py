@@ -1,6 +1,5 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 import os
 
 from src.visualization import show_matches_pdi
@@ -39,7 +38,6 @@ def comparar_firmas(firma_base, firma_test):
 if __name__ == "__main__":
     import sys
 
-    # Leemos desde argumentos de consola (como en tu versión) o usamos por defecto
     img_original = sys.argv[1] if len(sys.argv) > 1 else "original.png"
     img_prueba = sys.argv[2] if len(sys.argv) > 2 else "prueba.png"
 
@@ -52,11 +50,10 @@ if __name__ == "__main__":
         porcentaje = comparar_firmas(firma1, firma2)
 
         UMBRAL_DECISION = 75.0
-        decision = "GENUINE" if porcentaje >= UMBRAL_DECISION else "FORGERY"
+        decision = "GENUINA" if porcentaje >= UMBRAL_DECISION else "POSIBLE FALSIFICACIÓN"
 
         print(f"Score: {porcentaje:.2f}%  ->  {decision}")
 
-        # Llamamos a la super visualización de Matplotlib
         show_matches_pdi(firma1, firma2, porcentaje)
 
     except FileNotFoundError as e:
