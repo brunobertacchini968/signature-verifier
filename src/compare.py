@@ -56,10 +56,25 @@ def comparar_firmas(firma_base, firma_test):
     
     # SSIM (Structural Similarity) mide cómo cambian las estructuras y patrones.
     # data_range=1.0 porque los arrays son 0 o 1.
-    score_ssim_raw, _ = ssim(skel_base.astype(float), skel_test.astype(float), data_range=1.0, full=True)
+    score_ssim_raw, ssim_map = ssim(skel_base.astype(float), skel_test.astype(float), data_range=1.0, full=True)
     
-    # SSIM va de -1 a 1, lo pasamos a escala de porcentaje 0-100%
-    porcentaje_ssim = max(0, (score_ssim_raw + 1) / 2 * 100)
+    # En un lienzo de 400x200, la gran mayoría de la imagen es fondo negro idéntico. Esto infla artificialmente
+    # el SSIM promedio a >90% incluso para firmas totalmente diferentes.
+    # Creamos una máscara dilatando los esqueletos para promediar el SSIM únicamente en las zonas cercanas a los trazos.
+    kernel = np.ones((15, 15), np.uint8)
+    mask_base = cv2.dilate(skel_base.astype(np.uint8), kernel)
+    mask_test = cv2.dilate(skel_test.astype(np.uint8), kernel)
+    mask_active = cv2.bitwise_or(mask_base, mask_test)
+    
+    if mask_active.sum() == 0:
+        porcentaje_ssim = 0.0
+    else:
+        # Promediar el SSIM local solo en los píxeles activos (cercanos a la firma)
+        ssim_active = ssim_map[mask_active > 0]
+        score_ssim_masked = float(np.mean(ssim_active))
+        # SSIM varía entre -1 y 1. Un score de 0.45 es bajo, así que no sumamos +1. 
+        # Simplemente tomamos el valor positivo como porcentaje directo para ser más estrictos.
+        porcentaje_ssim = max(0.0, score_ssim_masked * 100.0)
     
     # --- 2. Análisis de Características Locales (ORB) ---
     # ORB busca "esquinas" o giros bruscos en los trazos, útiles para ver si fluyen igual
@@ -87,6 +102,19 @@ def comparar_firmas(firma_base, firma_test):
                     good_matches.append(m)
             elif len(match_info) == 1:
                 good_matches.append(match_info[0])
+        
+        # En trazos lineales simples, puntos clave de zonas diferentes se parecen localmente
+        # y pasan el Ratio Test, generando una "tela de araña" de conexiones caóticas de 100% de coincidencia.
+        # RANSAC valida que los matches sigan una transformación geométrica coherente (rotación, escala, traslación).
+        if len(good_matches) >= 4:
+            src_pts = np.float32([kp1[m.queryIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+            dst_pts = np.float32([kp2[m.trainIdx].pt for m in good_matches]).reshape(-1, 1, 2)
+            
+            # estimateAffinePartial2D restringe a rotación, escala uniforme y traslación
+            _, inliers = cv2.estimateAffinePartial2D(src_pts, dst_pts, method=cv2.RANSAC, ransacReprojThreshold=15.0)
+            
+            if inliers is not None:
+                good_matches = [good_matches[i] for i in range(len(good_matches)) if inliers[i][0]]
         
         # Calculamos un score basado en cuántos "Good Matches" logramos encontrar.
         # Empíricamente, encontrar más de 40 buenas conexiones en una firma de 400x200 es excelente.

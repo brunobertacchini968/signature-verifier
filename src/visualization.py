@@ -3,34 +3,34 @@ import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib.lines as mlines
 
-def show_advanced_matches(img_a, img_b, skel_a, skel_b, ssim_score, orb_score, total_score, kp1, kp2, good_matches):
+def show_advanced_matches(img_a, img_b, skel_a, skel_b, ssim_score, orb_score, signet_score, total_score, kp1, kp2, good_matches):
     """
     Visualización avanzada interactiva: 
-    - Arriba: Esqueletos para análisis de similitud estructural (SSIM)
+    - Arriba: Esqueletos para análisis de similitud estructural (SSIM) y Score de IA (SigNet)
     - Abajo: Conexiones de Puntos Clave usando ORB (Interactivas con Hover)
     """
     fig = plt.figure(figsize=(14, 10))
-    color_titulo = 'green' if total_score >= 75.0 else 'red'
-    fig.suptitle(f"Validación de Firma - Score Final: {total_score:.2f}%", 
+    color_titulo = 'green' if total_score >= 70.0 else 'red'
+    fig.suptitle(f"Validación Híbrida de Firma - Score Final: {total_score:.2f}%", 
                  fontsize=20, fontweight='bold', color=color_titulo)
 
-    # --- Subplots de Intensidad (Falso Color) ---
+    # --- Subplots de Intensidad (Falso Color - Presión de bolígrafo) ---
     ax1 = plt.subplot(2, 2, 1)
-    ax1.set_title("Firma Base (Intensidad de Tinta)")
-    # Invertimos para que el trazo tenga valores altos y se vea mejor con el colormap
+    ax1.set_title("Firma Base (Intensidad de Tinta / Presión)")
+    # Invertimos para que el trazo tenga valores altos y se vea mejor con el colormap magma
     img_a_inv = 255 - img_a
     ax1.imshow(img_a_inv, cmap='magma')
     ax1.axis('off')
 
     ax2 = plt.subplot(2, 2, 2)
-    ax2.set_title(f"Firma Prueba (Intensidad) | SSIM: {ssim_score:.2f}%")
+    ax2.set_title(f"Firma Prueba | SSIM: {ssim_score:.1f}% | ORB: {orb_score:.1f}% | SigNet IA: {signet_score:.1f}%")
     img_b_inv = 255 - img_b
     ax2.imshow(img_b_inv, cmap='magma')
     ax2.axis('off')
 
     # --- Subplot ORB Interactivo ---
     ax3 = plt.subplot(2, 1, 2)
-    ax3.set_title(f"Puntos Clave ORB ({len(good_matches)} matches) | PASA EL RATÓN SOBRE LAS LÍNEAS")
+    ax3.set_title(f"Alineación Geométrica Clásica ({len(good_matches)} matches) | PASÁ EL MOUSE SOBRE LAS LÍNEAS PARA DETALLES")
     
     # Crear canvas combinado horizontalmente
     hA, wA = img_a.shape
