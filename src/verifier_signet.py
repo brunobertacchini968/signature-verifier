@@ -6,57 +6,50 @@ import os
 import requests
 from tqdm import tqdm
 from collections import OrderedDict
-# Intentamos importar SigNet desde la librería sigver si está instalada.
-# Si no está instalada o falla, definimos la arquitectura nosotros mismos para máxima robustez.
-try:
-    from sigver.featurelearning.models import SigNet
-    SIGVER_AVAILABLE = True
-    print("[SigNet] Librería 'sigver' cargada exitosamente.")
-except ImportError:
-    SIGVER_AVAILABLE = False
-    print("[SigNet] Librería 'sigver' no disponible. Usando arquitectura autocontenida.")
+# Definimos la arquitectura de SigNet en PyTorch (basada en luizgh/sigver)
+# para que el script sea 100% independiente y no requiera instalar librerías externas rotas.
 
-    def conv_bn_relu(in_channels, out_channels, kernel_size,  stride=1, pad=0):
-        return nn.Sequential(OrderedDict([
-            ('conv', nn.Conv2d(in_channels, out_channels, kernel_size, stride, pad, bias=False)),
-            ('bn', nn.BatchNorm2d(out_channels)),
-            ('relu', nn.ReLU()),
+def conv_bn_relu(in_channels, out_channels, kernel_size,  stride=1, pad=0):
+    return nn.Sequential(OrderedDict([
+        ('conv', nn.Conv2d(in_channels, out_channels, kernel_size, stride, pad, bias=False)),
+        ('bn', nn.BatchNorm2d(out_channels)),
+        ('relu', nn.ReLU()),
+    ]))
+
+def linear_bn_relu(in_features, out_features):
+    return nn.Sequential(OrderedDict([
+        ('fc', nn.Linear(in_features, out_features, bias=False)),  # Bias is added after BN
+        ('bn', nn.BatchNorm1d(out_features)),
+        ('relu', nn.ReLU()),
+    ]))
+
+# Definimos la arquitectura de SigNet en PyTorch desde luizgh/sigver
+class SigNet(nn.Module):
+    def __init__(self):
+        super(SigNet, self).__init__()
+        self.feature_space_size = 2048
+
+        self.conv_layers = nn.Sequential(OrderedDict([
+            ('conv1', conv_bn_relu(1, 96, 11, stride=4)),
+            ('maxpool1', nn.MaxPool2d(3, 2)),
+            ('conv2', conv_bn_relu(96, 256, 5, pad=2)),
+            ('maxpool2', nn.MaxPool2d(3, 2)),
+            ('conv3', conv_bn_relu(256, 384, 3, pad=1)),
+            ('conv4', conv_bn_relu(384, 384, 3, pad=1)),
+            ('conv5', conv_bn_relu(384, 256, 3, pad=1)),
+            ('maxpool3', nn.MaxPool2d(3, 2)),
         ]))
 
-    def linear_bn_relu(in_features, out_features):
-        return nn.Sequential(OrderedDict([
-            ('fc', nn.Linear(in_features, out_features, bias=False)),  # Bias is added after BN
-            ('bn', nn.BatchNorm1d(out_features)),
-            ('relu', nn.ReLU()),
+        self.fc_layers = nn.Sequential(OrderedDict([
+            ('fc1', linear_bn_relu(256 * 3 * 5, 2048)),
+            ('fc2', linear_bn_relu(self.feature_space_size, self.feature_space_size)),
         ]))
 
-    # Definimos la arquitectura de SigNet en PyTorch desde luizgh/sigver
-    class SigNet(nn.Module):
-        def __init__(self):
-            super(SigNet, self).__init__()
-            self.feature_space_size = 2048
-
-            self.conv_layers = nn.Sequential(OrderedDict([
-                ('conv1', conv_bn_relu(1, 96, 11, stride=4)),
-                ('maxpool1', nn.MaxPool2d(3, 2)),
-                ('conv2', conv_bn_relu(96, 256, 5, pad=2)),
-                ('maxpool2', nn.MaxPool2d(3, 2)),
-                ('conv3', conv_bn_relu(256, 384, 3, pad=1)),
-                ('conv4', conv_bn_relu(384, 384, 3, pad=1)),
-                ('conv5', conv_bn_relu(384, 256, 3, pad=1)),
-                ('maxpool3', nn.MaxPool2d(3, 2)),
-            ]))
-
-            self.fc_layers = nn.Sequential(OrderedDict([
-                ('fc1', linear_bn_relu(256 * 3 * 5, 2048)),
-                ('fc2', linear_bn_relu(self.feature_space_size, self.feature_space_size)),
-            ]))
-
-        def forward(self, inputs):
-            x = self.conv_layers(inputs)
-            x = x.view(x.shape[0], 256 * 3 * 5)
-            x = self.fc_layers(x)
-            return x
+    def forward(self, inputs):
+        x = self.conv_layers(inputs)
+        x = x.view(x.shape[0], 256 * 3 * 5)
+        x = self.fc_layers(x)
+        return x
 
 def descargar_pesos_gdrive(file_id, destino):
     """Descarga de Google Drive de manera robusta usando gdown y descomprime si es necesario."""

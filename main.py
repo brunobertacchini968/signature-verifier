@@ -2,6 +2,10 @@ import argparse
 import sys
 import os
 import cv2
+import warnings
+
+# Suprimir advertencias de urllib3 sobre OpenSSL/LibreSSL en MacOS
+warnings.filterwarnings("ignore", module="urllib3")
 
 # Importamos nuestros módulos en src/
 from src.detector import detectar_y_recortar_firma, SignatureDetectionError

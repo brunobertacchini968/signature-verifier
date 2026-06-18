@@ -31,8 +31,16 @@ def detectar_y_recortar_firma(ruta_documento, conf_threshold=0.3, padding=15):
     h_orig, w_orig = img.shape[:2]
     
     # Cargar el modelo preentrenado de detección de firmas
-    # Ultralytics descargará los pesos de Hugging Face automáticamente la primera vez
-    model = YOLO("tech4humans/yolov8s-signature-detector")
+    model_path = os.path.join("models", "yolov8s-signature.pt")
+    if not os.path.exists(model_path):
+        print("[YOLO] Descargando pesos preentrenados desde Hugging Face...")
+        from huggingface_hub import hf_hub_download
+        os.makedirs("models", exist_ok=True)
+        # Descargamos el modelo entrenado
+        hf_hub_download(repo_id="tech4humans/yolov8s-signature-detector", filename="yolov8s.pt", local_dir="models")
+        os.rename(os.path.join("models", "yolov8s.pt"), model_path)
+        
+    model = YOLO(model_path)
     
     # Ejecutar la predicción
     results = model.predict(source=img, conf=conf_threshold, verbose=False)
